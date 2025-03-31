@@ -76,3 +76,4 @@ resource accountName_databaseName_containerName 'Microsoft.DocumentDB/databaseAc
 }
 
 output name string = cosmosDB.name
+output connectionString string = listKeys(cosmosDB.id, '2021-01-15').primaryMasterKey

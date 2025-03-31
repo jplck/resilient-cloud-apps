@@ -36,7 +36,7 @@ param featureFlags array = [
   }
 ]
 
-resource appConfigStore 'Microsoft.AppConfiguration/configurationStores@2021-10-01-preview' = {
+resource appConfigStore 'Microsoft.AppConfiguration/configurationStores@2024-05-01' = {
   name: appConfigStoreName
   location: location
   sku: {
@@ -51,7 +51,7 @@ resource appConfigStore 'Microsoft.AppConfiguration/configurationStores@2021-10-
   }
 }
 
-resource configStoreFeatureflag 'Microsoft.AppConfiguration/configurationStores/keyValues@2021-10-01-preview' = [for featureFlag in featureFlags: {
+resource configStoreFeatureflag 'Microsoft.AppConfiguration/configurationStores/keyValues@2024-05-01' = [for featureFlag in featureFlags: {
   parent: appConfigStore
   // Delimiter '/' not possible because of BCP170
   name: '.appconfig.featureflag~2F${featureFlag.app}:${featureFlag.featureFlagKey}$${featureFlag.featureFlagLabel}'
@@ -67,3 +67,4 @@ resource configStoreFeatureflag 'Microsoft.AppConfiguration/configurationStores/
 }]
 
 output appConfigurationName string = appConfigStore.name
+output connectionString string = listKeys(appConfigStore.id, '2024-05-01').value[0].connectionString

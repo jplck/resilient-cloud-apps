@@ -17,24 +17,12 @@ We will also show you how you can use **Azure Monitor with Application Insights*
 
 ## Deploy Azure resources
 
-e.g. possible reagions:  
-'westcentralus,eastus,westus,centralus,uksouth,westeurope,japaneast,northcentralus,eastus2'
+run the following commands to setup your infrastructure. This repository uses the Azure Developer CLI to speed things up.
 
 ```bash
-PROJECT_NAME="asresapp1"
-LOCATION="westeurope"
-GITHUB_REPO_OWNER="jplck"
-IMAGE_TAG="latest"
+azd auth login
 
-bash ./deploy-infra.sh $PROJECT_NAME $LOCATION $GITHUB_REPO_OWNER $IMAGE_TAG
-```
-
-## Create config file
-
-```bash
-PROJECT_NAME="asresapp1"
-
-bash ./create-config.sh $PROJECT_NAME
+azd up
 ```
 
 ## Launch locally
