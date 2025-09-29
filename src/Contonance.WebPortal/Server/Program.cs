@@ -2,6 +2,7 @@ using Microsoft.ApplicationInsights.Extensibility;
 using Microsoft.Extensions.Azure;
 using Azure;
 using Azure.Identity;
+using Azure.Messaging.EventHubs.Producer;
 using Contonance.Extensions;
 using Contonance.WebPortal.Server.Clients;
 using Contonance.WebPortal.Client;
@@ -57,22 +58,25 @@ builder.Services.AddSingleton<ITelemetryInitializer>(_ => new CloudRoleNameTelem
 
 
 builder.Services.AddAzureAppConfiguration();
+
+// Configure Event Hub Producer with managed identity
+var eventHubNamespace = builder.Configuration.GetValue<string>("EventHub:EventHubNamespace");
+var eventHubName = builder.Configuration.GetValue<string>("EventHub:EventHubName");
+
+if (!string.IsNullOrEmpty(eventHubNamespace) && !string.IsNullOrEmpty(eventHubName))
+{
+    // Register EventHubProducerClient directly
+    var fullyQualifiedNamespace = $"{eventHubNamespace}.servicebus.windows.net";
+    builder.Services.AddSingleton(serviceProvider =>
+        new EventHubProducerClient(fullyQualifiedNamespace, eventHubName, new DefaultAzureCredential()));
+}
+else
+{
+    throw new InvalidOperationException("Both EventHub:EventHubNamespace and EventHub:EventHubName must be configured for managed identity authentication");
+}
+
 builder.Services.AddAzureClients(b =>
 {
-    // Configure Event Hub Producer with managed identity
-    var eventHubNamespace = builder.Configuration.GetValue<string>("EventHub:EventHubNamespace");
-    var eventHubName = builder.Configuration.GetValue<string>("EventHub:EventHubName");
-    
-    if (!string.IsNullOrEmpty(eventHubNamespace) && !string.IsNullOrEmpty(eventHubName))
-    {
-        // Use managed identity with DefaultAzureCredential
-        var eventHubUri = $"{eventHubNamespace}.servicebus.windows.net";
-        b.AddEventHubProducerClient(eventHubUri, eventHubName).WithCredential(new DefaultAzureCredential());
-    }
-    else
-    {
-        throw new InvalidOperationException("Both EventHub:EventHubNamespace and EventHub:EventHubName must be configured for managed identity authentication");
-    }
 
     // Configure Storage Blob client with managed identity
     var storageAccountName = builder.Configuration.GetValue<string>("AzureBlobStorageAccountName");
