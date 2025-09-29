@@ -69,12 +69,7 @@ builder.Services.AddAzureClients(b =>
     }
     else
     {
-        // Fallback to connection string for local development
-        var connectionString = builder.Configuration.GetValue<string>("EventHub:BlobConnectionString");
-        if (!string.IsNullOrEmpty(connectionString))
-        {
-            b.AddBlobServiceClient(connectionString);
-        }
+        throw new InvalidOperationException("EventHub:StorageAccountName must be configured for managed identity authentication");
     }
 });
 

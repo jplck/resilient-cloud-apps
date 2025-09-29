@@ -109,7 +109,6 @@ module acareceiver 'acacontonancebackend.bicep' = {
     appInsightsName: logging.outputs.appInsightsName
     eventHubName: eventhub.outputs.eventHubName
     eventHubNamespaceName: eventhub.outputs.eventHubNamespaceName
-    eventHubAuthRuleName: eventhub.outputs.authRuleName
     storageAccountName: eh_storage.outputs.storageAccountName
     registryOwner: registryOwner
     imageTag: imageTag

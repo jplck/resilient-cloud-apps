@@ -24,16 +24,16 @@ AZURE_CORE_ONLY_SHOW_ERRORS="True"
 
 AI_CONNECTIONSTRING=$(az resource show -g $RESOURCE_GROUP -n appi-$PROJECT_NAME --resource-type "Microsoft.Insights/components" --query properties.ConnectionString -o tsv | tr -d '[:space:]')
 BLOB_CONNECTIONSTRING=$(az storage account show-connection-string --name ehst$PROJECT_NAME --resource-group $RESOURCE_GROUP --query "connectionString" -o tsv)
-EVENTHUB_CONNECTIONSTRING=$(az eventhubs namespace authorization-rule keys list --name RootManageSharedAccessKey --namespace-name evhns-$PROJECT_NAME --resource-group $RESOURCE_GROUP --query "primaryConnectionString" | tr -d '"')
 EVENTHUB_NAME=$(az eventhubs eventhub show -g $RESOURCE_GROUP -n events --namespace-name evhns-$PROJECT_NAME --query name --output tsv)
+EVENTHUB_NAMESPACE_NAME=evhns-$PROJECT_NAME
 COSMOS_CONNECTIONSTRING=$(az cosmosdb keys list --resource-group $RESOURCE_GROUP --name dbs$PROJECT_NAME --type connection-strings --query "connectionStrings[0].connectionString" -o tsv)
 APPCONFIG_CONNECTIONSTRING=$(az appconfig credential list --name appcs-$PROJECT_NAME --resource-group $RESOURCE_GROUP --query "[?name=='Primary'].connectionString" -o tsv)
 
 cat template.env > local.env
 
 echo "ApplicationInsights__ConnectionString=\"$AI_CONNECTIONSTRING\"" >> local.env
-echo "EventHub__EventHubConnectionString=\"$EVENTHUB_CONNECTIONSTRING\"" >> local.env
 echo "EventHub__EventHubName=\"$EVENTHUB_NAME\"" >> local.env
+echo "EventHub__EventHubNamespace=\"$EVENTHUB_NAMESPACE_NAME\"" >> local.env
 echo "EventHub__BlobConnectionString=\"$BLOB_CONNECTIONSTRING\"" >> local.env
 echo "ConnectionStrings__CosmosApi=\"$COSMOS_CONNECTIONSTRING\"" >> local.env
 echo "AppConfiguration__ConnectionString=\"$APPCONFIG_CONNECTIONSTRING\"" >> local.env

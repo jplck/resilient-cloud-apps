@@ -62,7 +62,6 @@ builder.Services.AddAzureClients(b =>
     // Configure Event Hub Producer with managed identity
     var eventHubNamespace = builder.Configuration.GetValue<string>("EventHub:EventHubNamespace");
     var eventHubName = builder.Configuration.GetValue<string>("EventHub:EventHubName");
-    var eventHubConnectionString = builder.Configuration.GetValue<string>("EventHub:EventHubConnectionString");
     
     if (!string.IsNullOrEmpty(eventHubNamespace) && !string.IsNullOrEmpty(eventHubName))
     {
@@ -70,10 +69,9 @@ builder.Services.AddAzureClients(b =>
         var eventHubUri = $"{eventHubNamespace}.servicebus.windows.net";
         b.AddEventHubProducerClient(eventHubUri, eventHubName).WithCredential(new DefaultAzureCredential());
     }
-    else if (!string.IsNullOrEmpty(eventHubConnectionString) && !string.IsNullOrEmpty(eventHubName))
+    else
     {
-        // Fallback to connection string for local development
-        b.AddEventHubProducerClient(eventHubConnectionString, eventHubName);
+        throw new InvalidOperationException("Both EventHub:EventHubNamespace and EventHub:EventHubName must be configured for managed identity authentication");
     }
 
     // Configure Storage Blob client with managed identity

@@ -8,8 +8,6 @@ param eventHubNamespaceName string
 
 param eventHubName string
 
-param eventHubAuthRuleName string
-
 param appInsightsName string
 
 param storageAccountName string
@@ -20,11 +18,8 @@ param imageTag string
 
 param appConfigurationName string
 
-var EHConnectionStringSecretName = 'eventhub-connection-string'
-var StorageLeaseBlobName = 'keda-blob-lease'
-
-resource rule 'Microsoft.EventHub/namespaces/eventhubs/authorizationRules@2022-01-01-preview' existing = {
-  name: '${eventHubNamespaceName}/${eventHubName}/${eventHubAuthRuleName}'
+resource eventHubNamespace 'Microsoft.EventHub/namespaces@2022-01-01-preview' existing = {
+  name: eventHubNamespaceName
 }
 
 resource appConfiguration 'Microsoft.AppConfiguration/configurationStores@2021-10-01-preview' existing = {
@@ -37,10 +32,6 @@ resource appInsights 'Microsoft.Insights/components@2020-02-02' existing = {
 
 resource storageAccount 'Microsoft.Storage/storageAccounts@2021-08-01' existing = {
   name: storageAccountName
-}
-
-resource eventHubNamespace 'Microsoft.EventHub/namespaces@2022-01-01-preview' existing = {
-  name: eventHubNamespaceName
 }
 
 resource containerApp 'Microsoft.App/containerApps@2022-06-01-preview' = {
@@ -63,12 +54,6 @@ resource containerApp 'Microsoft.App/containerApps@2022-06-01-preview' = {
           }
         ]
       }
-      secrets: [
-        {
-          name: EHConnectionStringSecretName
-          value: rule.listKeys().primaryConnectionString
-        }
-      ]
     }
     template: {
       containers: [
@@ -128,27 +113,6 @@ resource containerApp 'Microsoft.App/containerApps@2022-06-01-preview' = {
       scale: {
         minReplicas: 1
         maxReplicas: 2
-        rules: [
-          {
-            name: 'sb-keda-scale'
-            custom: {
-              type: 'azure-eventhub'
-              metadata: {
-                consumerGroup: '$Default'
-                unprocessedEventThreshold: '64'
-                blobContainer: StorageLeaseBlobName
-                checkpointStrategy: 'blobMetadata'
-                storageAccountName: storageAccount.name
-              }
-              auth: [
-                {
-                  secretRef: EHConnectionStringSecretName
-                  triggerParameter: 'connection'
-                }
-              ]
-            }
-          }
-        ]
       }
     }
   }

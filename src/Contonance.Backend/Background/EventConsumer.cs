@@ -50,7 +50,12 @@ namespace Contonance.Backend.Background
 
             var eventHubName = _configuration.GetValue<string>("EventHub:EventHubName");
             var eventHubNamespace = _configuration.GetValue<string>("EventHub:EventHubNamespace");
-            var eventHubConnectionString = _configuration.GetValue<string>("EventHub:EventHubConnectionString");
+
+            // Validate required configuration
+            if (string.IsNullOrEmpty(eventHubNamespace) || string.IsNullOrEmpty(eventHubName))
+            {
+                throw new InvalidOperationException("Both EventHub:EventHubNamespace and EventHub:EventHubName must be configured for managed identity authentication");
+            }
 
             // The BlobServiceClient is now configured with managed identity in Program.cs
             // It will authenticate using DefaultAzureCredential when running in Azure
@@ -59,24 +64,10 @@ namespace Contonance.Backend.Background
             
             _logger.LogInformation($"Using blob container for checkpoints: {blobContainerClient.Uri}");
             
-            // Use managed identity for Event Hub when namespace is available
-            if (!string.IsNullOrEmpty(eventHubNamespace) && !string.IsNullOrEmpty(eventHubName))
-            {
-                // Use managed identity with DefaultAzureCredential
-                var fullyQualifiedNamespace = $"{eventHubNamespace}.servicebus.windows.net";
-                _processor = new EventProcessorClient(blobContainerClient, consumerGroup, fullyQualifiedNamespace, eventHubName, new DefaultAzureCredential());
-                _logger.LogInformation($"Using managed identity for Event Hub: {fullyQualifiedNamespace}");
-            }
-            else if (!string.IsNullOrEmpty(eventHubConnectionString) && !string.IsNullOrEmpty(eventHubName))
-            {
-                // Fallback to connection string for local development
-                _processor = new EventProcessorClient(blobContainerClient, consumerGroup, eventHubConnectionString, eventHubName);
-                _logger.LogInformation($"Using connection string for Event Hub (fallback for local development)");
-            }
-            else
-            {
-                throw new InvalidOperationException("Either EventHub:EventHubNamespace or EventHub:EventHubConnectionString must be configured");
-            }
+            // Use managed identity with DefaultAzureCredential
+            var fullyQualifiedNamespace = $"{eventHubNamespace}.servicebus.windows.net";
+            _processor = new EventProcessorClient(blobContainerClient, consumerGroup, fullyQualifiedNamespace, eventHubName, new DefaultAzureCredential());
+            _logger.LogInformation($"Using managed identity for Event Hub: {fullyQualifiedNamespace}");
 
             _processor.ProcessEventAsync += ProcessEventHandler;
             _processor.ProcessErrorAsync += ProcessErrorHandler;
