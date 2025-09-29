@@ -50,8 +50,13 @@ namespace Contonance.Backend.Background
             var eventHubName = _configuration.GetValue<string>("EventHub:EventHubName");
             var eventHubConnectionString = _configuration.GetValue<string>("EventHub:EventHubConnectionString");
 
+            // The BlobServiceClient is now configured with managed identity in Program.cs
+            // It will authenticate using DefaultAzureCredential when running in Azure
             var blobContainerClient = _blobServiceClient.GetBlobContainerClient("checkpoint-store");
             await blobContainerClient.CreateIfNotExistsAsync();
+            
+            _logger.LogInformation($"Using blob container for checkpoints: {blobContainerClient.Uri}");
+            
             _processor = new EventProcessorClient(blobContainerClient, consumerGroup, eventHubConnectionString, eventHubName);
 
             _processor.ProcessEventAsync += ProcessEventHandler;

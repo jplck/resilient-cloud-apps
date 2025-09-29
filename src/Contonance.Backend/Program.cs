@@ -1,5 +1,6 @@
 using Microsoft.ApplicationInsights.Extensibility;
 using Microsoft.Extensions.Azure;
+using Azure.Identity;
 using Contonance.Backend.Background;
 using Contonance.Backend.Clients;
 using Contonance.Backend.Repositories;
@@ -45,7 +46,23 @@ builder.Services.AddSingleton<ITelemetryInitializer>(_ => new CloudRoleNameTelem
 
 builder.Services.AddAzureClients(b =>
 {
-    b.AddBlobServiceClient(builder.Configuration.GetValue<string>("EventHub:BlobConnectionString"));
+    // Get storage account name from configuration
+    var storageAccountName = builder.Configuration.GetValue<string>("EventHub:StorageAccountName");
+    if (!string.IsNullOrEmpty(storageAccountName))
+    {
+        // Use managed identity with DefaultAzureCredential
+        var storageUri = new Uri($"https://{storageAccountName}.blob.core.windows.net");
+        b.AddBlobServiceClient(storageUri).WithCredential(new DefaultAzureCredential());
+    }
+    else
+    {
+        // Fallback to connection string for local development
+        var connectionString = builder.Configuration.GetValue<string>("EventHub:BlobConnectionString");
+        if (!string.IsNullOrEmpty(connectionString))
+        {
+            b.AddBlobServiceClient(connectionString);
+        }
+    }
 });
 
 builder.Services.AddSingleton<RepairReportsRepository, RepairReportsRepository>();

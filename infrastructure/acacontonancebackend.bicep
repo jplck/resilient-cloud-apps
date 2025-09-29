@@ -12,7 +12,7 @@ param eventHubAuthRuleName string
 
 param appInsightsName string
 
-param storageConnectionString string
+param storageAccountName string
 
 param registryOwner string
 
@@ -21,7 +21,6 @@ param imageTag string
 param appConfigurationName string
 
 var EHConnectionStringSecretName = 'eventhub-connection-string'
-var StorageConnectionStringSecretName = 'storage-connection-string'
 var StorageLeaseBlobName = 'keda-blob-lease'
 
 resource rule 'Microsoft.EventHub/namespaces/eventhubs/authorizationRules@2022-01-01-preview' existing = {
@@ -36,9 +35,16 @@ resource appInsights 'Microsoft.Insights/components@2020-02-02' existing = {
   name: appInsightsName
 }
 
+resource storageAccount 'Microsoft.Storage/storageAccounts@2021-08-01' existing = {
+  name: storageAccountName
+}
+
 resource containerApp 'Microsoft.App/containerApps@2022-06-01-preview' = {
   name: appName
   location: location
+  identity: {
+    type: 'SystemAssigned'
+  }
   properties: {
     managedEnvironmentId: containerAppEnvId
     configuration: {
@@ -57,10 +63,6 @@ resource containerApp 'Microsoft.App/containerApps@2022-06-01-preview' = {
         {
           name: EHConnectionStringSecretName
           value: rule.listKeys().primaryConnectionString
-        }
-        {
-          name: StorageConnectionStringSecretName
-          value: storageConnectionString
         }
       ]
     }
@@ -99,8 +101,8 @@ resource containerApp 'Microsoft.App/containerApps@2022-06-01-preview' = {
               value: rule.listKeys().primaryConnectionString
             }
             {
-              name: 'EventHub__BlobConnectionString'
-              value: storageConnectionString
+              name: 'EventHub__StorageAccountName'
+              value: storageAccount.name
             }
             {
               name: 'AppConfiguration__ConnectionString'
@@ -132,15 +134,12 @@ resource containerApp 'Microsoft.App/containerApps@2022-06-01-preview' = {
                 unprocessedEventThreshold: '64'
                 blobContainer: StorageLeaseBlobName
                 checkpointStrategy: 'blobMetadata'
+                storageAccountName: storageAccount.name
               }
               auth: [
                 {
                   secretRef: EHConnectionStringSecretName
                   triggerParameter: 'connection'
-                }
-                {
-                  secretRef: StorageConnectionStringSecretName
-                  triggerParameter: 'storageConnection'
                 }
               ]
             }
@@ -148,5 +147,16 @@ resource containerApp 'Microsoft.App/containerApps@2022-06-01-preview' = {
         ]
       }
     }
+  }
+}
+
+// Grant Storage Blob Data Contributor role to the managed identity
+resource roleAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: guid(containerApp.id, storageAccount.id, 'ba92f5b4-2d11-453d-a403-e96b0029c9fe')
+  scope: storageAccount
+  properties: {
+    principalId: containerApp.identity.principalId
+    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', 'ba92f5b4-2d11-453d-a403-e96b0029c9fe') // Storage Blob Data Contributor
+    principalType: 'ServicePrincipal'
   }
 }
