@@ -106,13 +106,37 @@ resource containerApp 'Microsoft.App/containerApps@2022-06-01-preview' = {
   }
 }
 
-// Grant Cosmos DB Built-in Data Contributor role to the managed identity
-resource cosmosDbRoleAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
-  name: guid(containerApp.id, cosmosDb.id, '00000000-0000-0000-0000-000000000002')
-  scope: cosmosDb
+// Create a custom SQL role definition for data access
+var roleDefinitionId = '11111111-1111-1111-1111-111111111111'
+
+resource sqlRoleDefinition 'Microsoft.DocumentDB/databaseAccounts/sqlRoleDefinitions@2024-11-15' = {
+  parent: cosmosDb
+  name: roleDefinitionId
   properties: {
+    roleName: 'Enterprise Warehouse Data Contributor'
+    type: 'CustomRole'
+    assignableScopes: [
+      cosmosDb.id
+    ]
+    permissions: [
+      {
+        dataActions: [
+          'Microsoft.DocumentDB/databaseAccounts/readMetadata'
+          'Microsoft.DocumentDB/databaseAccounts/sqlDatabases/containers/*'
+          'Microsoft.DocumentDB/databaseAccounts/sqlDatabases/containers/items/*'
+        ]
+      }
+    ]
+  }
+}
+
+// Grant Cosmos DB SQL role to the managed identity
+resource cosmosDbRoleAssignment 'Microsoft.DocumentDB/databaseAccounts/sqlRoleAssignments@2024-11-15' = {
+  parent: cosmosDb
+  name: guid(containerApp.id, cosmosDb.id, roleDefinitionId)
+  properties: {
+    roleDefinitionId: sqlRoleDefinition.id
     principalId: containerApp.identity.principalId
-    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '00000000-0000-0000-0000-000000000002') // Cosmos DB Built-in Data Contributor
-    principalType: 'ServicePrincipal'
+    scope: cosmosDb.id
   }
 }
