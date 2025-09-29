@@ -3,19 +3,24 @@ using Microsoft.Azure.Cosmos;
 public class MessageCosmosSqlStorageService : IMessageStorageService
 {
     private readonly ILogger<MessageCosmosSqlStorageService> _logger;
+    private readonly CosmosClient _cosmosClient;
+    private readonly IConfiguration _configuration;
 
-    private CosmosClient _cosmosClient;
-
-    private static string DatabaseName = "repair_parts";
+    private readonly string _databaseName;
     private static string ContainerName = "orders";
 
-    public MessageCosmosSqlStorageService(ILogger<MessageCosmosSqlStorageService> logger, CosmosClient cosmosClient)
+    public MessageCosmosSqlStorageService(ILogger<MessageCosmosSqlStorageService> logger, CosmosClient cosmosClient, IConfiguration configuration)
     {
         _logger = logger;
         _cosmosClient = cosmosClient;
+        _configuration = configuration;
+        
+        // Get database name from configuration or use default
+        _databaseName = _configuration.GetValue<string>("CosmosDb:DatabaseName") ?? "repair_parts";
+        
         AsyncHelper.RunAsync(async () =>
         {
-            await CreateIfNotExistsAsync(DatabaseName, ContainerName);
+            await CreateIfNotExistsAsync(_databaseName, ContainerName);
         });
     }
 
@@ -61,7 +66,7 @@ public class MessageCosmosSqlStorageService : IMessageStorageService
             Timestamp = DateTime.UtcNow
         };
 
-        var container = _cosmosClient.GetContainer(DatabaseName, ContainerName);
+        var container = _cosmosClient.GetContainer(_databaseName, ContainerName);
         if (container == null)
         {
             throw new Exception("Container was null");

@@ -16,12 +16,25 @@ builder.Configuration
     .AddEnvironmentVariables()
     .AddAzureAppConfiguration(options =>
     {
-        options
-            .Connect(builder.Configuration.GetValue<string>("AppConfiguration:ConnectionString"))
-            .UseFeatureFlags(options =>
-            {
-                options.CacheExpirationInterval = TimeSpan.FromSeconds(2);
-            });
+        // Use managed identity for App Configuration when endpoint is available
+        var appConfigEndpoint = builder.Configuration.GetValue<string>("AppConfiguration:Endpoint");
+        var appConfigConnectionString = builder.Configuration.GetValue<string>("AppConfiguration:ConnectionString");
+        
+        if (!string.IsNullOrEmpty(appConfigEndpoint))
+        {
+            // Use managed identity with DefaultAzureCredential
+            options.Connect(new Uri(appConfigEndpoint), new DefaultAzureCredential());
+        }
+        else if (!string.IsNullOrEmpty(appConfigConnectionString))
+        {
+            // Fallback to connection string for local development
+            options.Connect(appConfigConnectionString);
+        }
+        
+        options.UseFeatureFlags(featureFlags =>
+        {
+            featureFlags.CacheExpirationInterval = TimeSpan.FromSeconds(2);
+        });
 
         configurationRefresher = options.GetRefresher();
     });

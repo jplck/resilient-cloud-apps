@@ -23,6 +23,9 @@ resource cosmosDb 'Microsoft.DocumentDB/databaseAccounts@2021-01-15' existing = 
 resource containerApp 'Microsoft.App/containerApps@2022-06-01-preview' = {
   name: appName
   location: location
+  identity: {
+    type: 'SystemAssigned'
+  }
   properties: {
     managedEnvironmentId: containerAppEnvId
     configuration: {
@@ -61,8 +64,12 @@ resource containerApp 'Microsoft.App/containerApps@2022-06-01-preview' = {
               value: 'http://enterprise-warehouse-backend/api/message/receive'
             }
             {
-              name: 'ConnectionStrings__CosmosApi'
-              value: cosmosDb.listConnectionStrings().connectionStrings[0].connectionString
+              name: 'CosmosDb__AccountEndpoint'
+              value: cosmosDb.properties.documentEndpoint
+            }
+            {
+              name: 'CosmosDb__DatabaseName'
+              value: 'repair_parts'
             }
             {
               name: 'ApplicationInsights__ConnectionString'
@@ -96,5 +103,16 @@ resource containerApp 'Microsoft.App/containerApps@2022-06-01-preview' = {
         ]
       }
     }
+  }
+}
+
+// Grant Cosmos DB Built-in Data Contributor role to the managed identity
+resource cosmosDbRoleAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: guid(containerApp.id, cosmosDb.id, '00000000-0000-0000-0000-000000000002')
+  scope: cosmosDb
+  properties: {
+    principalId: containerApp.identity.principalId
+    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '00000000-0000-0000-0000-000000000002') // Cosmos DB Built-in Data Contributor
+    principalType: 'ServicePrincipal'
   }
 }

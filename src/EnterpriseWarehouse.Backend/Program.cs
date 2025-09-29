@@ -1,5 +1,6 @@
 using AspNetCoreRateLimit;
 using Microsoft.ApplicationInsights.Extensibility;
+using Azure.Identity;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -33,14 +34,38 @@ builder.Services.AddSingleton<IRateLimitConfiguration, RateLimitConfiguration>()
 builder.Services.AddSingleton(
     s =>
     {
-        return new Microsoft.Azure.Cosmos.Fluent.CosmosClientBuilder(builder.Configuration.GetConnectionString("CosmosApi"))
-            .WithSerializerOptions(new Microsoft.Azure.Cosmos.CosmosSerializationOptions()
-            {
-                PropertyNamingPolicy = Microsoft.Azure.Cosmos.CosmosPropertyNamingPolicy.CamelCase
-            })
-            .WithBulkExecution(false)
-            .WithThrottlingRetryOptions(TimeSpan.FromSeconds(1), 1)
-            .Build();
+        // Use managed identity for Cosmos DB when account endpoint is available
+        var cosmosAccountEndpoint = builder.Configuration.GetValue<string>("CosmosDb:AccountEndpoint");
+        var cosmosConnectionString = builder.Configuration.GetConnectionString("CosmosApi");
+        
+        if (!string.IsNullOrEmpty(cosmosAccountEndpoint))
+        {
+            // Use managed identity with DefaultAzureCredential
+            return new Microsoft.Azure.Cosmos.Fluent.CosmosClientBuilder(cosmosAccountEndpoint, new DefaultAzureCredential())
+                .WithSerializerOptions(new Microsoft.Azure.Cosmos.CosmosSerializationOptions()
+                {
+                    PropertyNamingPolicy = Microsoft.Azure.Cosmos.CosmosPropertyNamingPolicy.CamelCase
+                })
+                .WithBulkExecution(false)
+                .WithThrottlingRetryOptions(TimeSpan.FromSeconds(1), 1)
+                .Build();
+        }
+        else if (!string.IsNullOrEmpty(cosmosConnectionString))
+        {
+            // Fallback to connection string for local development
+            return new Microsoft.Azure.Cosmos.Fluent.CosmosClientBuilder(cosmosConnectionString)
+                .WithSerializerOptions(new Microsoft.Azure.Cosmos.CosmosSerializationOptions()
+                {
+                    PropertyNamingPolicy = Microsoft.Azure.Cosmos.CosmosPropertyNamingPolicy.CamelCase
+                })
+                .WithBulkExecution(false)
+                .WithThrottlingRetryOptions(TimeSpan.FromSeconds(1), 1)
+                .Build();
+        }
+        else
+        {
+            throw new InvalidOperationException("Either CosmosDb:AccountEndpoint or ConnectionStrings:CosmosApi must be configured");
+        }
     }
 );
 

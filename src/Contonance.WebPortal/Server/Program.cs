@@ -1,6 +1,7 @@
 using Microsoft.ApplicationInsights.Extensibility;
 using Microsoft.Extensions.Azure;
 using Azure;
+using Azure.Identity;
 using Contonance.Extensions;
 using Contonance.WebPortal.Server.Clients;
 using Contonance.WebPortal.Client;
@@ -22,12 +23,25 @@ builder.Configuration
     .AddEnvironmentVariables()
     .AddAzureAppConfiguration(options =>
 {
-    options.Connect(builder.Configuration
-        .GetValue<string>("AppConfiguration:ConnectionString"))
-        .UseFeatureFlags(options =>
-        {
-            options.CacheExpirationInterval = TimeSpan.FromSeconds(2);
-        });
+    // Use managed identity for App Configuration when endpoint is available
+    var appConfigEndpoint = builder.Configuration.GetValue<string>("AppConfiguration:Endpoint");
+    var appConfigConnectionString = builder.Configuration.GetValue<string>("AppConfiguration:ConnectionString");
+    
+    if (!string.IsNullOrEmpty(appConfigEndpoint))
+    {
+        // Use managed identity with DefaultAzureCredential
+        options.Connect(new Uri(appConfigEndpoint), new DefaultAzureCredential());
+    }
+    else if (!string.IsNullOrEmpty(appConfigConnectionString))
+    {
+        // Fallback to connection string for local development
+        options.Connect(appConfigConnectionString);
+    }
+    
+    options.UseFeatureFlags(featureFlags =>
+    {
+        featureFlags.CacheExpirationInterval = TimeSpan.FromSeconds(2);
+    });
 });
 
 builder.Services.AddLogging(config =>
@@ -45,7 +59,32 @@ builder.Services.AddSingleton<ITelemetryInitializer>(_ => new CloudRoleNameTelem
 builder.Services.AddAzureAppConfiguration();
 builder.Services.AddAzureClients(b =>
 {
-    b.AddEventHubProducerClient(builder.Configuration.GetValue<string>("EventHub:EventHubConnectionString"), builder.Configuration.GetValue<string>("EventHub:EventHubName"));
+    // Configure Event Hub Producer with managed identity
+    var eventHubNamespace = builder.Configuration.GetValue<string>("EventHub:EventHubNamespace");
+    var eventHubName = builder.Configuration.GetValue<string>("EventHub:EventHubName");
+    var eventHubConnectionString = builder.Configuration.GetValue<string>("EventHub:EventHubConnectionString");
+    
+    if (!string.IsNullOrEmpty(eventHubNamespace) && !string.IsNullOrEmpty(eventHubName))
+    {
+        // Use managed identity with DefaultAzureCredential
+        var eventHubUri = $"{eventHubNamespace}.servicebus.windows.net";
+        b.AddEventHubProducerClient(eventHubUri, eventHubName).WithCredential(new DefaultAzureCredential());
+    }
+    else if (!string.IsNullOrEmpty(eventHubConnectionString) && !string.IsNullOrEmpty(eventHubName))
+    {
+        // Fallback to connection string for local development
+        b.AddEventHubProducerClient(eventHubConnectionString, eventHubName);
+    }
+
+    // Configure Storage Blob client with managed identity
+    var storageAccountName = builder.Configuration.GetValue<string>("AzureBlobStorageAccountName");
+    if (!string.IsNullOrEmpty(storageAccountName))
+    {
+        // Use managed identity with DefaultAzureCredential
+        var storageUri = new Uri($"https://{storageAccountName}.blob.core.windows.net");
+        b.AddBlobServiceClient(storageUri).WithCredential(new DefaultAzureCredential());
+    }
+
     //Added config to enable/disable Azure OpenAI Service DI for demo purposes
     if (builder.Configuration.GetValue<bool>("AzureOpenAiServiceEnabled")) {
         b.AddOpenAIClient(new Uri(builder.Configuration.GetNoEmptyStringOrThrow("AzureOpenAiServiceEndpoint")), new AzureKeyCredential(builder.Configuration.GetNoEmptyStringOrThrow("AzureOpenAiKey")));

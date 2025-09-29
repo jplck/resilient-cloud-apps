@@ -143,7 +143,6 @@ module acawebportal 'acawebportal.bicep' = {
     containerName: aiStorageContainerName
     appConfigurationName: appconfig.outputs.appConfigurationName
     eventHubName: eventhub.outputs.eventHubName
-    eventHubAuthRuleName: eventhub.outputs.authRuleName
     eventHubNamespaceName: eventhub.outputs.eventHubNamespaceName
   }
 }

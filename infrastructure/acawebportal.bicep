@@ -20,8 +20,6 @@ param eventHubNamespaceName string
 
 param eventHubName string
 
-param eventHubAuthRuleName string
-
 resource appInsights 'Microsoft.Insights/components@2020-02-02' existing = {
   name: appInsightsName
 }
@@ -38,13 +36,16 @@ resource appConfiguration 'Microsoft.AppConfiguration/configurationStores@2021-1
   name: appConfigurationName
 }
 
-resource rule 'Microsoft.EventHub/namespaces/eventhubs/authorizationRules@2022-01-01-preview' existing = {
-  name: '${eventHubNamespaceName}/${eventHubName}/${eventHubAuthRuleName}'
+resource eventHubNamespace 'Microsoft.EventHub/namespaces@2022-01-01-preview' existing = {
+  name: eventHubNamespaceName
 }
 
 resource containerApp 'Microsoft.App/containerApps@2022-06-01-preview' = {
   name: appName
   location: location
+  identity: {
+    type: 'SystemAssigned'
+  }
   properties: {
     managedEnvironmentId: containerAppEnvId
     configuration: {
@@ -107,16 +108,16 @@ resource containerApp 'Microsoft.App/containerApps@2022-06-01-preview' = {
               value: ''
             }
             {
-              name: 'AzureBlobSasToken'
-              value: storageAccount.listKeys().keys[0].value
+              name: 'AzureBlobStorageAccountName'
+              value: storageAccount.name
             }
             {
               name: 'AzureBlobContainerUrl'
-              value: 'https://${storageAccount.name}.blob.core.windows.net/${storageContainer.name}'
+              value: 'https://${storageAccount.name}.blob.${environment().suffixes.storage}/${storageContainer.name}'
             }
             {
-              name: 'AppConfiguration__ConnectionString'
-              value: appConfiguration.listKeys().value[0].connectionString
+              name: 'AppConfiguration__Endpoint'
+              value: appConfiguration.properties.endpoint
             }
             {
               name: 'CONTONANCE_BACKEND_URL'
@@ -127,8 +128,8 @@ resource containerApp 'Microsoft.App/containerApps@2022-06-01-preview' = {
               value: eventHubName
             }
             {
-              name: 'EventHub__EventHubConnectionString'
-              value: rule.listKeys().primaryConnectionString
+              name: 'EventHub__EventHubNamespace'
+              value: eventHubNamespaceName
             }
             {
               name: 'AzureOpenAiServiceEnabled'
@@ -162,5 +163,39 @@ resource containerApp 'Microsoft.App/containerApps@2022-06-01-preview' = {
         ]
       }
     }
+  }
+}
+
+// RBAC role assignments for managed identity
+// Grant Storage Blob Data Contributor role to the managed identity
+resource storageRoleAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: guid(containerApp.id, storageAccount.id, 'ba92f5b4-2d11-453d-a403-e96b0029c9fe')
+  scope: storageAccount
+  properties: {
+    principalId: containerApp.identity.principalId
+    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', 'ba92f5b4-2d11-453d-a403-e96b0029c9fe') // Storage Blob Data Contributor
+    principalType: 'ServicePrincipal'
+  }
+}
+
+// Grant App Configuration Data Reader role to the managed identity
+resource appConfigRoleAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: guid(containerApp.id, appConfiguration.id, '516239f1-63e1-4d78-a4de-a74fb236a071')
+  scope: appConfiguration
+  properties: {
+    principalId: containerApp.identity.principalId
+    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '516239f1-63e1-4d78-a4de-a74fb236a071') // App Configuration Data Reader
+    principalType: 'ServicePrincipal'
+  }
+}
+
+// Grant Azure Event Hubs Data Sender role to the managed identity
+resource eventHubRoleAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: guid(containerApp.id, eventHubNamespace.id, '2b629674-e913-4c01-ae53-ef4638d8f975')
+  scope: eventHubNamespace
+  properties: {
+    principalId: containerApp.identity.principalId
+    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '2b629674-e913-4c01-ae53-ef4638d8f975') // Azure Event Hubs Data Sender
+    principalType: 'ServicePrincipal'
   }
 }

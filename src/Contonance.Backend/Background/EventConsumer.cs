@@ -2,6 +2,7 @@ using Azure.Messaging.EventHubs;
 using Azure.Messaging.EventHubs.Consumer;
 using Azure.Messaging.EventHubs.Processor;
 using Azure.Storage.Blobs;
+using Azure.Identity;
 using Contonance.Backend.Clients;
 using Contonance.Backend.Repositories;
 using Contonance.Shared;
@@ -48,6 +49,7 @@ namespace Contonance.Backend.Background
             string consumerGroup = EventHubConsumerClient.DefaultConsumerGroupName;
 
             var eventHubName = _configuration.GetValue<string>("EventHub:EventHubName");
+            var eventHubNamespace = _configuration.GetValue<string>("EventHub:EventHubNamespace");
             var eventHubConnectionString = _configuration.GetValue<string>("EventHub:EventHubConnectionString");
 
             // The BlobServiceClient is now configured with managed identity in Program.cs
@@ -57,7 +59,24 @@ namespace Contonance.Backend.Background
             
             _logger.LogInformation($"Using blob container for checkpoints: {blobContainerClient.Uri}");
             
-            _processor = new EventProcessorClient(blobContainerClient, consumerGroup, eventHubConnectionString, eventHubName);
+            // Use managed identity for Event Hub when namespace is available
+            if (!string.IsNullOrEmpty(eventHubNamespace) && !string.IsNullOrEmpty(eventHubName))
+            {
+                // Use managed identity with DefaultAzureCredential
+                var fullyQualifiedNamespace = $"{eventHubNamespace}.servicebus.windows.net";
+                _processor = new EventProcessorClient(blobContainerClient, consumerGroup, fullyQualifiedNamespace, eventHubName, new DefaultAzureCredential());
+                _logger.LogInformation($"Using managed identity for Event Hub: {fullyQualifiedNamespace}");
+            }
+            else if (!string.IsNullOrEmpty(eventHubConnectionString) && !string.IsNullOrEmpty(eventHubName))
+            {
+                // Fallback to connection string for local development
+                _processor = new EventProcessorClient(blobContainerClient, consumerGroup, eventHubConnectionString, eventHubName);
+                _logger.LogInformation($"Using connection string for Event Hub (fallback for local development)");
+            }
+            else
+            {
+                throw new InvalidOperationException("Either EventHub:EventHubNamespace or EventHub:EventHubConnectionString must be configured");
+            }
 
             _processor.ProcessEventAsync += ProcessEventHandler;
             _processor.ProcessErrorAsync += ProcessErrorHandler;
