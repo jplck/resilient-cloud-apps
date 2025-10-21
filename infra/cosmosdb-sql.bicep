@@ -76,3 +76,5 @@ resource accountName_databaseName_containerName 'Microsoft.DocumentDB/databaseAc
 }
 
 output name string = cosmosDB.name
+@secure()
+output connectionString string = 'AccountEndpoint=https://${cosmosDB.name}.documents.azure.com:443/;AccountKey=${cosmosDB.listKeys().primaryMasterKey};'

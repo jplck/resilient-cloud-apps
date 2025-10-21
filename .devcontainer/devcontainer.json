@@ -1,0 +1,114 @@
+{
+  "name": "Resilient Cloud Apps - .NET 7.0",
+  "image": "mcr.microsoft.com/devcontainers/dotnet:7.0",
+
+  // Features to add to the dev container. More info: https://containers.dev/features.
+  "features": {
+    "ghcr.io/devcontainers/features/azure-cli:1": {},
+    "ghcr.io/devcontainers/features/docker-in-docker:2": {},
+    "ghcr.io/devcontainers/features/github-cli:1": {},
+    "ghcr.io/devcontainers/features/node:1": {
+      "version": "18"
+    },
+    "ghcr.io/azure/azure-dev/azd:latest": {},
+    "azure-cli": "latest"
+  },
+
+  // Configure tool-specific properties.
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        // .NET Development
+        "ms-dotnettools.csharp",
+        "ms-dotnettools.vscode-dotnet-runtime",
+        "ms-dotnettools.blazorwasm-companion",
+
+        // Azure Development
+        "ms-vscode.vscode-bicep",
+        "ms-azuretools.vscode-azureresourcegroups",
+        "ms-azuretools.vscode-azurefunctions",
+        "ms-azuretools.vscode-azureappservice",
+        "ms-azuretools.vscode-cosmosdb",
+        "ms-azuretools.vscode-azurestorage",
+
+        // Docker
+        "ms-azuretools.vscode-docker",
+
+        // Git and GitHub
+        "github.vscode-pull-request-github",
+        "github.copilot",
+        "github.copilot-chat",
+
+        // General Development
+        "ms-vscode.powershell",
+        "redhat.vscode-yaml",
+        "ms-vscode.vscode-json",
+        "streetsidesoftware.code-spell-checker",
+        "editorconfig.editorconfig",
+
+        // Testing and Debugging
+        "formulahendry.dotnet-test-explorer",
+        "ms-vscode.test-adapter-converter"
+      ],
+
+      "settings": {
+        "dotnet.completion.showCompletionItemsFromUnimportedNamespaces": true,
+        "dotnet.server.useOmnisharp": false,
+        "omnisharp.enableEditorConfigSupport": true,
+        "omnisharp.enableImportCompletion": true,
+        "omnisharp.enableRoslynAnalyzers": true,
+        "editor.formatOnSave": true,
+        "editor.formatOnPaste": true,
+        "files.trimTrailingWhitespace": true,
+        "files.insertFinalNewline": true,
+        "terminal.integrated.defaultProfile.linux": "bash",
+        "git.autofetch": true,
+        "git.enableSmartCommit": true
+      }
+    }
+  },
+
+  // Use 'forwardPorts' to make a list of ports inside the container available locally.
+  "forwardPorts": [
+    5000,   // Backend HTTP
+    5001,   // Backend HTTPS
+    5173,   // Blazor WebAssembly dev server
+    7071    // Azure Functions (if used)
+  ],
+
+  "portsAttributes": {
+    "5000": {
+      "label": "Backend HTTP",
+      "protocol": "http"
+    },
+    "5001": {
+      "label": "Backend HTTPS",
+      "protocol": "https"
+    },
+    "5173": {
+      "label": "Blazor WebAssembly",
+      "protocol": "http"
+    }
+  },
+
+  // Use 'postStartCommand' to run commands after the container starts.
+  "postStartCommand": "dotnet --version && az --version",
+
+  // Comment out to connect as root instead. More info: https://aka.ms/vscode-remote/containers/non-root.
+  "remoteUser": "vscode",
+
+  // Mount the Docker socket to enable Docker-in-Docker
+  "mounts": [
+    "source=/var/run/docker.sock,target=/var/run/docker.sock,type=bind"
+  ],
+
+  // Set environment variables
+  "containerEnv": {
+    "ASPNETCORE_ENVIRONMENT": "Development",
+    "DOTNET_USE_POLLING_FILE_WATCHER": "true",
+    "NUGET_XMLDOC_MODE": "skip"
+  },
+  "runArgs": [
+        "--dns=8.8.8.8"
+  ]
+}

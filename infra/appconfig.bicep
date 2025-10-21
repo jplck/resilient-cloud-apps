@@ -51,19 +51,23 @@ resource appConfigStore 'Microsoft.AppConfiguration/configurationStores@2021-10-
   }
 }
 
-resource configStoreFeatureflag 'Microsoft.AppConfiguration/configurationStores/keyValues@2021-10-01-preview' = [for featureFlag in featureFlags: {
-  parent: appConfigStore
-  // Delimiter '/' not possible because of BCP170
-  name: '.appconfig.featureflag~2F${featureFlag.app}:${featureFlag.featureFlagKey}$${featureFlag.featureFlagLabel}'
-  properties: {
-    value: string({
-      // Delimiter ':' not possible because of Azure portal, but we ignore this for now
-      id: '${featureFlag.app}:${featureFlag.featureFlagKey}'
-      description: featureFlag.featureFlagDescription
-      enabled: false
-    })
-    contentType: 'application/vnd.microsoft.appconfig.ff+json;charset=utf-8'
+resource configStoreFeatureflag 'Microsoft.AppConfiguration/configurationStores/keyValues@2021-10-01-preview' = [
+  for featureFlag in featureFlags: {
+    parent: appConfigStore
+    // Delimiter '/' not possible because of BCP170
+    name: '.appconfig.featureflag~2F${featureFlag.app}:${featureFlag.featureFlagKey}$${featureFlag.featureFlagLabel}'
+    properties: {
+      value: string({
+        // Delimiter ':' not possible because of Azure portal, but we ignore this for now
+        id: '${featureFlag.app}:${featureFlag.featureFlagKey}'
+        description: featureFlag.featureFlagDescription
+        enabled: false
+      })
+      contentType: 'application/vnd.microsoft.appconfig.ff+json;charset=utf-8'
+    }
   }
-}]
+]
 
 output appConfigurationName string = appConfigStore.name
+@secure()
+output connectionString string = appConfigStore.listKeys().value[0].connectionString

@@ -19,15 +19,18 @@ resource blobServices 'Microsoft.Storage/storageAccounts/blobServices@2019-06-01
   parent: storageAccount
 }
 
-resource containers 'Microsoft.Storage/storageAccounts/blobServices/containers@2019-06-01' = [for i in range(0, length(containerNames)): {
-  name: containerNames[i]
-  parent: blobServices
-  properties: {
-    publicAccess: 'None'
-    metadata: {}
+resource containers 'Microsoft.Storage/storageAccounts/blobServices/containers@2019-06-01' = [
+  for i in range(0, length(containerNames)): {
+    name: containerNames[i]
+    parent: blobServices
+    properties: {
+      publicAccess: 'None'
+      metadata: {}
+    }
   }
-}]
+]
 
-var blobStorageConnectionString = 'DefaultEndpointsProtocol=https;AccountName=${storageAccount.name};EndpointSuffix=${environment().suffixes.storage};AccountKey=${listKeys(storageAccount.id, storageAccount.apiVersion).keys[0].value}'
+var blobStorageConnectionString = 'DefaultEndpointsProtocol=https;AccountName=${storageAccount.name};EndpointSuffix=${environment().suffixes.storage};AccountKey=${storageAccount.listKeys().keys[0].value}'
+@secure()
 output blobStorageConnectionString string = blobStorageConnectionString
 output storageAccountName string = storageAccount.name

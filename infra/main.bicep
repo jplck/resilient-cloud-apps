@@ -1,8 +1,7 @@
 @description('Location resources.')
 param location string
 
-@description('Specifies a project name that is used to generate the Event Hub name and the Namespace name.')
-param projectName string
+param environmentName string
 
 param registryOwner string
 
@@ -13,7 +12,7 @@ targetScope = 'subscription'
 var aiStorageContainerName = 'ai-data'
 
 resource rg 'Microsoft.Resources/resourceGroups@2021-01-01' = {
-  name: '${projectName}-rg'
+  name: '${environmentName}-rg'
   location: location
 }
 
@@ -22,8 +21,8 @@ module logging 'logging.bicep' = {
   scope: rg
   params: {
     location: location
-    logAnalyticsWorkspaceName: 'log-${projectName}'
-    applicationInsightsName: 'appi-${projectName}'
+    logAnalyticsWorkspaceName: 'log-${environmentName}'
+    applicationInsightsName: 'appi-${environmentName}'
   }
 }
 
@@ -33,7 +32,7 @@ module workbook 'workbook.bicep' = {
   params: {
     location: location
     workbookId: '5caf5fbb-125c-4cfb-a3b3-de2c5a27ff08'
-    workbookDisplayName: 'reliable-apps-new-${projectName}'
+    workbookDisplayName: 'reliable-apps-new-${environmentName}'
     workbookSourceId: logging.outputs.appInsightsId
   }
 }
@@ -43,7 +42,7 @@ module eventhub 'eventhub.bicep' = {
   scope: rg
   params: {
     location: location
-    eventHubNamespaceName: 'evhns-${projectName}'
+    eventHubNamespaceName: 'evhns-${environmentName}'
     eventHubName: 'events'
   }
 }
@@ -53,7 +52,7 @@ module cosmosdbsql 'cosmosdb-sql.bicep' = {
   scope: rg
   params: {
     location: location
-    cosmosdbAccountName: 'dbs${projectName}'
+    cosmosdbAccountName: 'dbs${environmentName}'
     cosmosdbDatabaseName: 'repair_parts'
     autoscaleMaxThroughput: 400
   }
@@ -64,7 +63,7 @@ module eh_storage 'storage.bicep' = {
   scope: rg
   params: {
     location: location
-    storageAccountName: 'ehst${projectName}'
+    storageAccountName: 'ehst${environmentName}'
     containerNames: []
   }
 }
@@ -74,7 +73,7 @@ module ai_storage 'storage.bicep' = {
   scope: rg
   params: {
     location: location
-    storageAccountName: 'aist${projectName}'
+    storageAccountName: 'aist${environmentName}'
     containerNames: [
       aiStorageContainerName
     ]
@@ -86,7 +85,7 @@ module appconfig 'appconfig.bicep' = {
   scope: rg
   params: {
     location: location
-    appConfigStoreName: 'appcs-${projectName}'
+    appConfigStoreName: 'appcs-${environmentName}'
   }
 }
 
@@ -94,7 +93,7 @@ module acaenv 'acaenv.bicep' = {
   name: 'acaenv'
   scope: rg
   params: {
-    containerAppEnvName: 'aca-${projectName}'
+    containerAppEnvName: 'aca-${environmentName}'
     location: location
     logAnalyticsWorkspaceName: logging.outputs.logAnalyticsWorkspaceName
   }
@@ -151,8 +150,18 @@ module ai 'ai.bicep' = {
   scope: rg
   params: {
     location: location
-    openaiDeploymentName: 'openai-${projectName}'
-    documentIntDeploymentName: 'documentInt-${projectName}'
-    projectName: projectName
+    openaiDeploymentName: 'openai-${environmentName}'
+    documentIntDeploymentName: 'documentInt-${environmentName}'
+    projectName: environmentName
   }
 }*/
+
+output ApplicationInsights__ConnectionString string = logging.outputs.appInsightsInstrumentationKey
+output EventHub__EventHubName string = eventhub.outputs.eventHubName
+output EventHub__EventHubNamespace string = eventhub.outputs.eventHubNamespaceName
+@secure()
+output EventHub__BlobConnectionString string = eh_storage.outputs.blobStorageConnectionString
+@secure()
+output ConnectionStrings__CosmosApi string = cosmosdbsql.outputs.connectionString
+@secure()
+output AppConfiguration__ConnectionString string = appconfig.outputs.connectionString
